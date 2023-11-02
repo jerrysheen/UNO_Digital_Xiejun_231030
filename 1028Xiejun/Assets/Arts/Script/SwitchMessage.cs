@@ -13,12 +13,13 @@ public class SwitchMessage : MonoBehaviour
     GameObject btn_2;
     public bool ButtonIsPressed = false;
     GameObject anchor_obj;
-    Vector3 anchor_pos;
+    Vector2 anchor_pos;
     Vector2 localPos;
     Vector2 originalPos;
     Vector2 originalSize;
+    Vector2 shrinkDiff;
 
-
+    public float closeTime = .5f;
     void Start()
     {
         DOTween.Init();
@@ -29,8 +30,9 @@ public class SwitchMessage : MonoBehaviour
         btn_2 = btnRoot.transform.Find("Button_Pressed").gameObject;
 
         anchor_obj = this.transform.Find("AnchorPos").gameObject;
-        anchor_pos = anchor_obj.transform.position;
-
+        var temp = anchor_obj.GetComponent<RectTransform>().transform.localPosition;
+        anchor_pos = new Vector2(temp.x, temp.y);
+        
         Vector2 screenPos = Camera.main.WorldToScreenPoint(anchor_obj.transform.position);
 
         // 将屏幕坐标转换为以 Canvas 为基准的坐标
@@ -43,27 +45,55 @@ public class SwitchMessage : MonoBehaviour
         //);
 
         originalSize = image_2.rectTransform.rect.size;
-       originalPos = image_2.rectTransform.anchoredPosition;
+        shrinkDiff = anchor_pos - image_2.rectTransform.anchoredPosition;
+        Debug.Log(anchor_pos);
+        shrinkDiff.x = Mathf.Abs(shrinkDiff.x);
+        shrinkDiff.y = Mathf.Abs(shrinkDiff.y);
+        originalPos = image_2.rectTransform.anchoredPosition;
     }
 
     // 在这里定义你想在按键按下时执行的函数
     void OnKeyDown()
     {
+        switch (image_2.transform.GetSiblingIndex())
+        {
+            case 0:
+                SetOneImageToBackGround(image_1);
+                break;
+            case 1:
+                SetOneImageToBackGround(image_2);
+                break;
+            default:
+                break;
+        }
+    }
+
+    void SetOneImageToBackGround(Image image_2) 
+    {
         Debug.Log("Key is pressed down.");
         btn_1.SetActive(false);
-        //age_2.rectTransform.DOAnchorPos(new Vector2(302, 589), 5);
         image_2.rectTransform.pivot = new Vector2(1, 0);
-        // 缩小到 0
-        image_2.rectTransform.DOScale(Vector3.zero, 5);
-        // 调整 anchoredPosition 以保持右下角的位置不变
-        image_2.rectTransform.anchoredPosition = originalPos + new Vector2(originalSize.x, -originalSize.y)/2.0f;
+        image_2.rectTransform.anchoredPosition = originalPos + new Vector2(shrinkDiff.x, -shrinkDiff.y);
 
-        // 缩放到 0
-        image_2.rectTransform.DOScale(Vector3.zero, 5);
+        Sequence mySequence = DOTween.Sequence();
 
-        // 可选：同时渐变透明度到 0
-        image_2.DOFade(0, 5);
+        mySequence.Append(image_2.rectTransform.DOScale(Vector3.zero, closeTime));
+        mySequence.Append(image_2.DOFade(0, 0.0f));
+        mySequence.AppendCallback(() =>
+        {
 
+            int index = image_2.transform.GetSiblingIndex();
+            index = (int)Mathf.Max(index, 1);
+            image_2.transform.SetSiblingIndex(index - 1);
+
+        });
+        image_2.rectTransform.anchoredPosition = originalPos + new Vector2(originalSize.x, -originalSize.y) / 2.0f;
+        mySequence.Append(image_2.rectTransform.DOScale(1, closeTime));
+        mySequence.Append(image_2.DOFade(1, 0.0f));
+        //mySequence.Append(myTransform.DORotate(new Vector3(0, 180, 0), 1));
+
+        // 开始播放 Sequence
+        mySequence.Play();
     }
 
     // 在这里定义你想在按键释放时执行的函数
